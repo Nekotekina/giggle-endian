@@ -55,6 +55,9 @@ namespace stx
     defined(__AARCH64EB__) || \
     defined(_MIBSEB) || defined(__MIBSEB) || defined(__MIBSEB__)
 		native = big,
+#ifndef __BIG_ENDIAN__
+#define __BIG_ENDIAN__
+#endif
 #elif defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN || \
     defined(__LITTLE_ENDIAN__) || \
     defined(__ARMEL__) || \
@@ -63,6 +66,9 @@ namespace stx
     defined(_MIPSEL) || defined(__MIPSEL) || defined(__MIPSEL__) || \
     defined(_M_IX86) || defined(_M_X64) || defined(_M_IA64) || defined(_M_ARM)
 		native = little,
+#ifndef __LITTLE_ENDIAN__
+#define __LITTLE_ENDIAN__
+#endif
 #else
 #error "Unknown endianness"
 #endif
@@ -92,7 +98,7 @@ namespace stx
 			}
 		}
 
-		template <typename T, std::size_t Size, std::size_t Align>
+		template <typename T, std::size_t Size = sizeof(T), std::size_t Align = 1>
 		struct alignas(Align) endian_buffer
 		{
 			using type = endian_buffer;
@@ -208,6 +214,68 @@ namespace stx
 
 #endif
 	}
+
+#ifdef __BIG_ENDIAN__
+#define LE_STORE put_re
+#define LE_LOAD get_re
+#define BE_STORE put_ne
+#define BE_LOAD get_ne
+#else
+#define LE_STORE put_ne
+#define LE_LOAD get_ne
+#define BE_STORE put_re
+#define BE_LOAD get_re
+#endif
+
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic<T>::value || std::is_enum<T>::value>>
+	void le_store(void* dst, const T& value)
+	{
+		using buf = detail::endian_buffer<T>;
+		buf::LE_STORE(static_cast<typename buf::type*>(dst), value);
+	}
+
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic<T>::value || std::is_enum<T>::value>>
+	void le_load(T& value, const void* src)
+	{
+		using buf = detail::endian_buffer<T>;
+		value = buf::LE_LOAD(static_cast<const typename buf::type*>(src));
+	}
+
+	template <typename T>
+	T le_load(const void* src)
+	{
+		static_assert(std::is_arithmetic<T>::value || std::is_enum<T>::value, "le_load<>: invalid type");
+		using buf = detail::endian_buffer<T>;
+		return buf::LE_LOAD(static_cast<const typename buf::type*>(src));
+	}
+
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic<T>::value || std::is_enum<T>::value>>
+	void be_store(void* dst, const T& value)
+	{
+		using buf = detail::endian_buffer<T>;
+		buf::BE_STORE(static_cast<typename buf::type*>(dst), value);
+	}
+
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic<T>::value || std::is_enum<T>::value>>
+	void be_load(T& value, const void* src)
+	{
+		using buf = detail::endian_buffer<T>;
+		value = buf::BE_LOAD(static_cast<const typename buf::type*>(src));
+	}
+
+	template <typename T>
+	T be_load(const void* src)
+	{
+		static_assert(std::is_arithmetic<T>::value || std::is_enum<T>::value, "be_load<>: invalid type");
+
+		using buf = detail::endian_buffer<T>;
+		return buf::BE_LOAD(static_cast<const typename buf::type*>(src));
+	}
+
+#undef LE_STORE
+#undef LE_LOAD
+#undef BE_STORE
+#undef BE_LOAD
 
 	// Endianness support type
 	template <typename T, std::size_t Align, bool Native>
