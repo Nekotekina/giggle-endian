@@ -22,23 +22,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-// This header provides following template aliases: `le`, `be`, `ne`, `re`
 // stx::le<T,A> -- Little Endian
 // stx::be<T,A> -- Big Endian
-// stx::ne<T,A> -- Normal Endian (implementation-defined, it shall be either LE or BE)
-// stx::re<T,A> -- Reversed Endian (implementation-defined, shall not be equal to ne<>)
-// First template argument is the underlying type (hopefully may be any type).
+// stx::endian_base<T,A,Native> -- LE/BE implementation (selected by `Native`)
+// First template argument is the underlying type (base: arithmetic or enum).
 // Second optional template argument is explicit alignment (native by default).
 // Alignment may be increased and decreased.
 // Setting greater alignment works similar to alignas() and isn't very useful.
 // Setting small alignment (especially 1) is the alternative to `#pragma pack`.
-// Struct has public method get() and public member `data` (implementation-defined).
 
 // stx::be<std::uint32_t> -- big endian uint32_t
 // stx::le<std::uint32_t> -- little endian uint32_t
 // stx::be<std::uint32_t, 2> -- big endian uint32_t with enforced alignment 2 (packing)
-// stx::ne<std::uint32_t> -- use native endianness (either LE or BE, implementation-defined)
-// stx::re<std::uint32_t> -- use foreign endianness (either BE or LE, NOT equal to ne<>)
 
 #pragma once
 
@@ -77,51 +72,53 @@ namespace stx
 	{
 		using uchar = unsigned char;
 
+		// Copy with byteswap
+		template <std::size_t Size>
+		inline void revert(uchar* dst, const uchar* src)
+		{
+			for (std::size_t i = 0; i < Size; i++)
+			{
+				dst[i] = src[Size - 1 - i];
+			}
+		}
+
+		// Copy without byteswap
+		template <std::size_t Size>
+		inline void copy(uchar* dst, const uchar* src)
+		{
+			for (std::size_t i = 0; i < Size; i++)
+			{
+				dst[i] = src[i];
+			}
+		}
+
 		template <typename T, std::size_t Size, std::size_t Align>
 		struct alignas(Align) endian_buffer
 		{
 			using type = endian_buffer;
 
-			// Unoptimized generic copying with swapping bytes for unaligned data
-			static inline void reverse(uchar* dst, const uchar* src)
-			{
-				for (std::size_t i = 0; i < Size; i++)
-				{
-					dst[i] = src[Size - 1 - i];
-				}
-			}
-
-			// Unoptimized generic copying for unaligned data
-			static inline void copy(uchar* dst, const uchar* src)
-			{
-				for (std::size_t i = 0; i < Size; i++)
-				{
-					dst[i] = src[i];
-				}
-			}
-
 			static inline void put_re(type& dst, const T& src)
 			{
-				reverse(dst.data, reinterpret_cast<const uchar*>(&src));
+				revert<Size>(dst.data, reinterpret_cast<const uchar*>(&src));
 			}
 
 			static inline T get_re(const type& src)
 			{
 				T dst;
-				reverse(reinterpret_cast<uchar*>(&dst), src.data);
+				revert<Size>(reinterpret_cast<uchar*>(&dst), src.data);
 				return dst;
 			}
 
 			static inline void put_ne(type& dst, const T& src)
 			{
-				copy(dst.data, reinterpret_cast<const uchar*>(&src));
+				copy<Size>(dst.data, reinterpret_cast<const uchar*>(&src));
 			}
 
 			static inline T get_ne(const type& src)
 			{
-				T result;
-				copy(reinterpret_cast<uchar*>(&dst), src.data);
-				return result;
+				T dst;
+				copy<Size>(reinterpret_cast<uchar*>(&dst), src.data);
+				return dst;
 			}
 
 			uchar data[Size];
@@ -210,97 +207,161 @@ namespace stx
 		};
 
 #endif
-
-		// Endianness implementation fwd
-		template <typename T, std::size_t Align, bool Native>
-		class endian_base;
-
-		// Foreign endianness implementation
-		template <typename T, std::size_t Align>
-		class endian_base<T, Align, false>
-		{
-			using buf = endian_buffer<T, sizeof(T), Align>;
-
-		public:
-			using data_type = typename buf::type;
-			using value_type = T;
-
-			data_type data;
-
-			endian_base() = default;
-
-			endian_base(const T& value)
-			{
-				buf::put_re(data, value);
-			}
-
-			endian_base& operator=(const endian_base&) = default;
-
-			endian_base& operator=(const T& value)
-			{
-				buf::put_re(data, value);
-				return *this;
-			}
-
-			operator T() const
-			{
-				return buf::get_re(data);
-			}
-
-			T get() const
-			{
-				return buf::get_re(data);
-			}
-		};
-
-		// Native endianness implementation
-		template <typename T, std::size_t Align>
-		class endian_base<T, Align, true>
-		{
-			using buf = endian_buffer<T, sizeof(T), Align>;
-
-		public:
-			using data_type = typename buf::type;
-			using value_type = T;
-
-			data_type data;
-
-			endian_base() = default;
-
-			endian_base(const T& value)
-			{
-				buf::put_ne(data, value);
-			}
-
-			endian_base& operator=(const endian_base&) = default;
-
-			endian_base& operator=(const T& value)
-			{
-				buf::put_ne(data, value);
-				return *this;
-			}
-
-			operator T() const
-			{
-				return buf::get_ne(data);
-			}
-
-			T get() const
-			{
-				return buf::get_ne(data);
-			}
-		};
 	}
 
-	template <typename T, std::size_t A = alignof(T)>
-	using le = detail::endian_base<T, A, endian::native == endian::little>;
+	// Endianness support type
+	template <typename T, std::size_t Align, bool Native>
+	class endian_base
+	{
+		static_assert(std::is_arithmetic<T>::value || std::is_enum<T>::value, "endian_base<>: invalid type");
+
+		using buf = detail::endian_buffer<T, sizeof(T), Align>;
+		using data_t = typename buf::type;
+
+		data_t data;
+
+	public:
+		using value_type = T;
+
+		endian_base() = default;
+
+		endian_base(const T& value)
+		{
+			(Native ? buf::put_ne : buf::put_re)(data, value);
+		}
+
+		endian_base& operator=(const endian_base&) = default;
+
+		endian_base& operator=(const T& value)
+		{
+			(Native ? buf::put_ne : buf::put_re)(data, value);
+			return *this;
+		}
+
+		operator T() const
+		{
+			return (Native ? buf::get_ne : buf::get_re)(data);
+		}
+
+		T get() const
+		{
+			return (Native ? buf::get_ne : buf::get_re)(data);
+		}
+
+		auto operator++(int)
+		{
+			auto val = get();
+			auto result = val++;
+			*this = val;
+			return result; // Forward
+		}
+
+		auto operator--(int)
+		{
+			auto val = get();
+			auto result = val--;
+			*this = val;
+			return result; // Forward
+		}
+
+		endian_base& operator++()
+		{
+			auto val = get();
+			++val;
+			return (*this = val);
+		}
+
+		endian_base& operator--()
+		{
+			auto val = get();
+			--val;
+			return (*this = val);
+		}
+
+		template <typename T2>
+		endian_base& operator+=(T2&& rhs)
+		{
+			auto val = get();
+			val += std::forward<T2>(rhs);
+			return (*this = val);
+		}
+
+		template <typename T2>
+		endian_base& operator-=(T2&& rhs)
+		{
+			auto val = get();
+			val -= std::forward<T2>(rhs);
+			return (*this = val);
+		}
+
+		template <typename T2>
+		endian_base& operator*=(T2&& rhs)
+		{
+			auto val = get();
+			val *= std::forward<T2>(rhs);
+			return (*this = val);
+		}
+
+		template <typename T2>
+		endian_base& operator/=(T2&& rhs)
+		{
+			auto val = get();
+			val /= std::forward<T2>(rhs);
+			return (*this = val);
+		}
+
+		template <typename T2>
+		endian_base& operator%=(T2&& rhs)
+		{
+			auto val = get();
+			val %= std::forward<T2>(rhs);
+			return (*this = val);
+		}
+
+		template <typename T2>
+		endian_base& operator&=(T2&& rhs)
+		{
+			auto val = get();
+			val &= std::forward<T2>(rhs);
+			return (*this = val);
+		}
+
+		template <typename T2>
+		endian_base& operator|=(T2&& rhs)
+		{
+			auto val = get();
+			val |= std::forward<T2>(rhs);
+			return (*this = val);
+		}
+
+		template <typename T2>
+		endian_base& operator^=(T2&& rhs)
+		{
+			auto val = get();
+			val ^= std::forward<T2>(rhs);
+			return (*this = val);
+		}
+
+		template <typename T2>
+		endian_base& operator<<=(T2&& rhs)
+		{
+			auto val = get();
+			val <<= std::forward<T2>(rhs);
+			return (*this = val);
+		}
+
+		template <typename T2>
+		endian_base& operator>>=(T2&& rhs)
+		{
+			auto val = get();
+			val >>= std::forward<T2>(rhs);
+			return (*this = val);
+		}
+	};
 
 	template <typename T, std::size_t A = alignof(T)>
-	using be = detail::endian_base<T, A, endian::native == endian::big>;
+	using le = endian_base<T, A, endian::native == endian::little>;
 
 	template <typename T, std::size_t A = alignof(T)>
-	using ne = detail::endian_base<T, A, true>;
-
-	template <typename T, std::size_t A = alignof(T)>
-	using re = detail::endian_base<T, A, false>;
+	using be = endian_base<T, A, endian::native == endian::big>;
 }
