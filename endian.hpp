@@ -74,6 +74,13 @@ namespace stx
 #endif
 	};
 
+	template <typename T>
+	struct has_endianness
+		: std::integral_constant<bool,
+		std::is_arithmetic<T>::value || std::is_enum<T>::value || std::is_pointer<T>::value>
+	{
+	};
+
 	namespace detail
 	{
 		using uchar = unsigned char;
@@ -227,16 +234,18 @@ namespace stx
 #define BE_LOAD get_re
 #endif
 
-	template <typename T, typename = std::enable_if_t<std::is_arithmetic<T>::value || std::is_enum<T>::value>>
+	template <typename T>
 	void le_store(void* dst, const T& value)
 	{
+		static_assert(has_endianness<T>::value, "le_store<>: invalid type");
 		using buf = detail::endian_buffer<T>;
 		buf::LE_STORE(static_cast<typename buf::type*>(dst), value);
 	}
 
-	template <typename T, typename = std::enable_if_t<std::is_arithmetic<T>::value || std::is_enum<T>::value>>
+	template <typename T>
 	void le_load(T& value, const void* src)
 	{
+		static_assert(has_endianness<T>::value, "le_load<>: invalid type");
 		using buf = detail::endian_buffer<T>;
 		value = buf::LE_LOAD(static_cast<const typename buf::type*>(src));
 	}
@@ -244,21 +253,23 @@ namespace stx
 	template <typename T>
 	T le_load(const void* src)
 	{
-		static_assert(std::is_arithmetic<T>::value || std::is_enum<T>::value, "le_load<>: invalid type");
+		static_assert(has_endianness<T>::value, "le_load<>: invalid type");
 		using buf = detail::endian_buffer<T>;
 		return buf::LE_LOAD(static_cast<const typename buf::type*>(src));
 	}
 
-	template <typename T, typename = std::enable_if_t<std::is_arithmetic<T>::value || std::is_enum<T>::value>>
+	template <typename T>
 	void be_store(void* dst, const T& value)
 	{
+		static_assert(has_endianness<T>::value, "be_store<>: invalid type");
 		using buf = detail::endian_buffer<T>;
 		buf::BE_STORE(static_cast<typename buf::type*>(dst), value);
 	}
 
-	template <typename T, typename = std::enable_if_t<std::is_arithmetic<T>::value || std::is_enum<T>::value>>
+	template <typename T>
 	void be_load(T& value, const void* src)
 	{
+		static_assert(has_endianness<T>::value, "be_load<>: invalid type");
 		using buf = detail::endian_buffer<T>;
 		value = buf::BE_LOAD(static_cast<const typename buf::type*>(src));
 	}
@@ -266,8 +277,7 @@ namespace stx
 	template <typename T>
 	T be_load(const void* src)
 	{
-		static_assert(std::is_arithmetic<T>::value || std::is_enum<T>::value, "be_load<>: invalid type");
-
+		static_assert(has_endianness<T>::value, "be_load<>: invalid type");
 		using buf = detail::endian_buffer<T>;
 		return buf::BE_LOAD(static_cast<const typename buf::type*>(src));
 	}
@@ -281,7 +291,7 @@ namespace stx
 	template <typename T, std::size_t Align, bool Native>
 	class endian_base
 	{
-		static_assert(std::is_arithmetic<T>::value || std::is_enum<T>::value, "endian_base<>: invalid type");
+		static_assert(has_endianness<T>::value, "endian_base<>: invalid type");
 
 		using buf = detail::endian_buffer<T, sizeof(T), Align>;
 		using data_t = typename buf::type;
