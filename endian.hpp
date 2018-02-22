@@ -322,25 +322,25 @@ namespace std
 
 		endian_base(const T& value)
 		{
-			(Native ? buf::put_ne : buf::put_re)(data, value);
+			Native ? buf::put_ne(data, value) : buf::put_re(data, value);
 		}
 
 		endian_base& operator=(const endian_base&) = default;
 
 		endian_base& operator=(const T& value)
 		{
-			(Native ? buf::put_ne : buf::put_re)(data, value);
+			Native ? buf::put_ne(data, value) : buf::put_re(data, value);
 			return *this;
 		}
 
 		operator T() const
 		{
-			return (Native ? buf::get_ne : buf::get_re)(data);
+			return Native ? buf::get_ne(data) : buf::get_re(data);
 		}
 
 		T get() const
 		{
-			return (Native ? buf::get_ne : buf::get_re)(data);
+			return Native ? buf::get_ne(data) : buf::get_re(data);
 		}
 
 		auto operator++(int)
