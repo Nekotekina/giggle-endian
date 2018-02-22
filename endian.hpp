@@ -39,6 +39,7 @@ THE SOFTWARE.
 
 #include <type_traits>
 #include <cstdint>
+#include <cstring>
 
 namespace std
 {
@@ -83,7 +84,7 @@ namespace std
 	{
 		using uchar = unsigned char;
 
-		// Copy with byteswap
+		// Copy with byteswap (fallback algorithm)
 		template <std::size_t Size>
 		inline void revert(uchar* dst, const uchar* src)
 		{
@@ -93,28 +94,35 @@ namespace std
 			}
 		}
 
-		// Copy without byteswap
-		template <std::size_t Size>
-		inline void copy(uchar* dst, const uchar* src)
-		{
-			for (std::size_t i = 0; i < Size; i++)
-			{
-				dst[i] = src[i];
-			}
-		}
-
 		template <typename T, std::size_t Size = sizeof(T), std::size_t Align = 1>
 		struct alignas(Align) endian_buffer
 		{
 			using type = endian_buffer;
 
+			static constexpr bool can_opt = (Size == 2 || Size == 4 || Size == 8) && Align != Size;
+
 			static inline void put_re(type& dst, const T& src)
 			{
+				if (can_opt)
+				{
+					endian_buffer<T, Size, Size> buf_opt;
+					buf_opt.put_re(buf_opt, src);
+					std::memcpy(dst.data, &buf_opt, Size);
+					return;
+				}
+
 				revert<Size>(dst.data, reinterpret_cast<const uchar*>(&src));
 			}
 
 			static inline T get_re(const type& src)
 			{
+				if (can_opt)
+				{
+					endian_buffer<T, Size, Size> buf_opt;
+					std::memcpy(&buf_opt, src.data, Size);
+					return buf_opt.get_re(buf_opt);
+				}
+
 				T dst;
 				revert<Size>(reinterpret_cast<uchar*>(&dst), src.data);
 				return dst;
@@ -122,13 +130,13 @@ namespace std
 
 			static inline void put_ne(type& dst, const T& src)
 			{
-				copy<Size>(dst.data, reinterpret_cast<const uchar*>(&src));
+				std::memcpy(dst.data, reinterpret_cast<const uchar*>(&src), Size);
 			}
 
 			static inline T get_ne(const type& src)
 			{
 				T dst;
-				copy<Size>(reinterpret_cast<uchar*>(&dst), src.data);
+				std::memcpy(reinterpret_cast<uchar*>(&dst), src.data, Size);
 				return dst;
 			}
 
@@ -159,6 +167,18 @@ namespace std
 			{
 				return reinterpret_cast<const T&>(src);
 			}
+
+			operator const B&() const
+			{
+				return data;
+			}
+
+			operator B&()
+			{
+				return data;
+			}
+
+			B data;
 		};
 
 #if defined(_MSC_VER) || defined(__GNUG__)
@@ -216,7 +236,6 @@ namespace std
 #endif
 			}
 		};
-
 #endif
 	}
 
