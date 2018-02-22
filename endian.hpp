@@ -22,25 +22,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-// stx::le<T,A> -- Little Endian
-// stx::be<T,A> -- Big Endian
-// stx::endian_base<T,A,Native> -- LE/BE implementation (selected by `Native`)
+// std::le_t<T,A> -- Little Endian
+// std::be_t<T,A> -- Big Endian
+// std::endian_base<T,A,Native> -- LE/BE implementation (selected by `Native`)
 // First template argument is the underlying type (base: arithmetic or enum).
 // Second optional template argument is explicit alignment (native by default).
 // Alignment may be increased and decreased.
 // Setting greater alignment works similar to alignas() and isn't very useful.
 // Setting small alignment (especially 1) is the alternative to `#pragma pack`.
 
-// stx::be<std::uint32_t> -- big endian uint32_t
-// stx::le<std::uint32_t> -- little endian uint32_t
-// stx::be<std::uint32_t, 2> -- big endian uint32_t with enforced alignment 2 (packing)
+// std::be_t<std::uint32_t> -- big endian uint32_t
+// std::le_t<std::uint32_t> -- little endian uint32_t
+// std::be_t<std::uint32_t, 2> -- big endian uint32_t with enforced alignment 2 (packing)
 
 #pragma once
 
 #include <type_traits>
 #include <cstdint>
 
-namespace stx
+namespace std
 {
 	// Class proposed in https://howardhinnant.github.io/endian.html
 	enum class endian
@@ -75,9 +75,7 @@ namespace stx
 	};
 
 	template <typename T>
-	struct has_endianness
-		: std::integral_constant<bool,
-		std::is_arithmetic<T>::value || std::is_enum<T>::value || std::is_pointer<T>::value>
+	struct has_endianness : std::integral_constant<bool, std::is_arithmetic<T>::value || std::is_enum<T>::value>
 	{
 	};
 
@@ -438,8 +436,8 @@ namespace stx
 	};
 
 	template <typename T, std::size_t A = alignof(T)>
-	using le = endian_base<T, A, endian::native == endian::little>;
+	using le_t = endian_base<T, A, endian::native == endian::little>;
 
 	template <typename T, std::size_t A = alignof(T)>
-	using be = endian_base<T, A, endian::native == endian::big>;
+	using be_t = endian_base<T, A, endian::native == endian::big>;
 }
