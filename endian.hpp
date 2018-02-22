@@ -237,7 +237,7 @@ namespace std
 	{
 		static_assert(has_endianness<T>::value, "le_store<>: invalid type");
 		using buf = detail::endian_buffer<T>;
-		buf::LE_STORE(static_cast<typename buf::type*>(dst), value);
+		buf::LE_STORE(*static_cast<typename buf::type*>(dst), value);
 	}
 
 	template <typename T>
@@ -245,7 +245,7 @@ namespace std
 	{
 		static_assert(has_endianness<T>::value, "le_load<>: invalid type");
 		using buf = detail::endian_buffer<T>;
-		value = buf::LE_LOAD(static_cast<const typename buf::type*>(src));
+		value = buf::LE_LOAD(*static_cast<const typename buf::type*>(src));
 	}
 
 	template <typename T>
@@ -253,7 +253,7 @@ namespace std
 	{
 		static_assert(has_endianness<T>::value, "le_load<>: invalid type");
 		using buf = detail::endian_buffer<T>;
-		return buf::LE_LOAD(static_cast<const typename buf::type*>(src));
+		return buf::LE_LOAD(*static_cast<const typename buf::type*>(src));
 	}
 
 	template <typename T>
@@ -261,7 +261,7 @@ namespace std
 	{
 		static_assert(has_endianness<T>::value, "be_store<>: invalid type");
 		using buf = detail::endian_buffer<T>;
-		buf::BE_STORE(static_cast<typename buf::type*>(dst), value);
+		buf::BE_STORE(*static_cast<typename buf::type*>(dst), value);
 	}
 
 	template <typename T>
@@ -269,7 +269,7 @@ namespace std
 	{
 		static_assert(has_endianness<T>::value, "be_load<>: invalid type");
 		using buf = detail::endian_buffer<T>;
-		value = buf::BE_LOAD(static_cast<const typename buf::type*>(src));
+		value = buf::BE_LOAD(*static_cast<const typename buf::type*>(src));
 	}
 
 	template <typename T>
@@ -277,7 +277,7 @@ namespace std
 	{
 		static_assert(has_endianness<T>::value, "be_load<>: invalid type");
 		using buf = detail::endian_buffer<T>;
-		return buf::BE_LOAD(static_cast<const typename buf::type*>(src));
+		return buf::BE_LOAD(*static_cast<const typename buf::type*>(src));
 	}
 
 #undef LE_STORE
