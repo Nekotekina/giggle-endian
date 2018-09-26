@@ -1,6 +1,6 @@
 /*
 endian.hpp: Simple header-only endianness support library for C++
-Copyright (C) 2016 Ivan G. / nekotekina@gmail.com
+Copyright (C) 2016-2018 Ivan G. / nekotekina@gmail.com
 This file may be modified and distributed under the terms of the MIT license:
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -50,6 +50,7 @@ namespace std
 		big,
 // Detection from http://stackoverflow.com/questions/4239993/determining-endianness-at-compile-time
 #if defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN || \
+    defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__ || \
     defined(__BIG_ENDIAN__) || \
     defined(__ARMEB__) || \
     defined(__THUMBEB__) || \
@@ -60,7 +61,7 @@ namespace std
 #define __BIG_ENDIAN__
 #endif
 #elif defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN || \
-    (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ ) || \
+    defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ || \
     defined(__LITTLE_ENDIAN__) || \
     defined(__ARMEL__) || \
     defined(__THUMBEL__) || \
